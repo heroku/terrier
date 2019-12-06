@@ -1,0 +1,29 @@
+# Copyright (c) 2019, salesforce.com, inc.
+# All rights reserved.
+# SPDX-License-Identifier: Apache License 2.0
+# For full license text, see the LICENSE file in the repo root
+
+#THIS IS AN EXAMPLE CONFIG, MODIFY TO YOUR NEEDS
+
+# mode: container
+mode: image
+verbose: true
+# veryverbose: true
+image: image.tar
+# path: merged
+files:
+  - name: '/bin/cat'
+    hashes:
+      - hash: '2353cbb7b47d0782ba8cdd9c7438b053c982eaaea6fbef8620c31a58d1e276e8'
+      - hash: '22e88c7d6da9b73fbb515ed6a8f6d133c680527a799e3069ca7ce346d90649b2aaa'
+      - hash: '9a43cb726fef31f272333b236ff1fde4beab363af54d0bc99c304450065d9c96'
+      - hash: '8b7c559b8cccca0d30d01bc4b5dc944766208a53d18a03aa8afe97252207521faa'
+  - name: '/usr/local/go/bin/go'
+    hashes:
+      - hash: '2353cbb7b47d0782ba8cdd9c7438b053c982eaaea6fbef8620c31a58d1e276e8'
+
+#UNCOMMENT BELOW TO ANALYZE HASHES AND COMMENT FILES ABOVE
+# hashes:
+#   - hash: '2353cbb7b47d0782ba8cdd9c7438b053c982eaaea6fbef8620c31a58d1e276e8'
+#   - hash: '1c48ade64b96409e6773d2c5c771f3b3c5acec65a15980d8dca6b1efd3f95969'
+#   - hash: '60a2c86db4523e5d3eb41a247b4e7042a21d5c9d483d59053159d9ed50c8aa41aa'
