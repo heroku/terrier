@@ -24,7 +24,6 @@ or
 ```
 $ make all
 ```
-If you are building via make, ensure you have gox in your path ``` go get github.com/mitchellh/gox```
 
 ## Usage
 

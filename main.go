@@ -50,7 +50,7 @@ func main() {
 		os.Exit(1)
 	} else {
 		fmt.Println("[+] Loading config: ", *cfgPtr)
-		cfg, err = loadConfig()
+		cfg, err = loadConfig(*cfgPtr)
 		if err != nil {
 			fmt.Println("[ERROR] ", err)
 			os.Exit(1)
@@ -63,6 +63,7 @@ func main() {
 				doImageAnalysis(cfg)
 			} else {
 				fmt.Println("[!] Please provide list of files to analyse")
+				os.Exit(1)
 			}
 		case "container":
 			fmt.Println("[+] Analysing Container")
@@ -79,29 +80,46 @@ func main() {
 }
 
 func doContainerAnalysis(cfg Config) {
-	instancesFound, filesFound, err := inspectContainerForFiles(cfg)
-	if err != nil {
-		fmt.Println("[ERROR] ", err)
-		os.Exit(1)
+
+	if len(cfg.Hashes) > 0 {
+		inspectContainerForHashes(cfg)
 	}
 
 	if len(cfg.Files) > 0 {
-		if instancesFound < len(cfg.Files) {
-			fmt.Printf("[!] Not all files were identified: (%d/%d)\n", instancesFound, len(cfg.Files))
+		numInstancesVerified, identifiedFiles, verifiedFiles, err := inspectContainerForFiles(cfg)
+		if err != nil {
+			fmt.Println("[ERROR] ", err)
+			os.Exit(1)
+		}
+
+		if len(cfg.Files) != len(identifiedFiles) {
+			numNotIdentifiedFiles := len(cfg.Files) - len(identifiedFiles)
+			fmt.Printf("[!] Not all components were identifed: (%d/%d)\n", numNotIdentifiedFiles, len(cfg.Files))
 			for _, file := range cfg.Files {
-				if !checkIfFileInList(file.Name, filesFound) {
-					fmt.Println("[!] File not verified: ", file)
+				if !checkIfFileInList(file.Name, identifiedFiles) {
+					fmt.Println("[!] Component not identified: ", file.Name)
 				}
 			}
 			os.Exit(1)
 		} else {
-			fmt.Printf("[!] All files were identified and verified: (%d/%d)\n", instancesFound, len(cfg.Files))
+			fmt.Printf("[!] All components were identified: (%d/%d)\n", len(identifiedFiles), len(cfg.Files))
+		}
+
+		if len(cfg.Files) != len(verifiedFiles) {
+			fmt.Printf("[!] Not all components were verified: (%d/%d)\n", len(cfg.Files)-len(verifiedFiles), len(cfg.Files))
+			for _, file := range identifiedFiles {
+				if !checkIfFileInList(file.Name, verifiedFiles) {
+					fmt.Println("[!] Component not verified: ", file.Name)
+				}
+			}
+			os.Exit(1)
+		} else {
+			fmt.Printf("[!] All components were identified and verified: (%d/%d)\n", numInstancesVerified, len(cfg.Files))
 		}
 	}
-
 }
 
-func startContainerAnalysis(cfg Config) (int, []File, []File, error) {
+func startImageAnalysis(cfg Config) (int, []File, []File, error) {
 	fmt.Println("[+] Docker Image Source: ", cfg.Image)
 	file := getOnDiskFile(cfg.Image)
 	defer file.Close()
@@ -111,12 +129,11 @@ func startContainerAnalysis(cfg Config) (int, []File, []File, error) {
 }
 
 func doImageAnalysis(cfg Config) {
-
 	numInstancesFound := 0
 	var identifiedFiles []File
 	var verifiedFiles []File
 	var err error
-	numInstancesFound, identifiedFiles, verifiedFiles, err = startContainerAnalysis(cfg)
+	numInstancesFound, identifiedFiles, verifiedFiles, err = startImageAnalysis(cfg)
 	if err != nil {
 		fmt.Println("[ERROR]", err)
 		os.Exit(1)
@@ -136,9 +153,8 @@ func doImageAnalysis(cfg Config) {
 		} else {
 			fmt.Printf("[!] All components were identified: (%d/%d)\n", len(identifiedFiles), len(cfg.Files))
 		}
-
 		if len(cfg.Files) != len(verifiedFiles) {
-			fmt.Printf("[!] Not all components were verified: (%d/%d)\n", len(verifiedFiles), len(cfg.Files))
+			fmt.Printf("[!] Not all components were verified: (%d/%d)\n", len(cfg.Files)-len(verifiedFiles), len(cfg.Files))
 			for _, file := range identifiedFiles {
 				if !checkIfFileInList(file.Name, verifiedFiles) {
 					fmt.Println("[!] Component not verified: ", file.Name)
@@ -148,12 +164,13 @@ func doImageAnalysis(cfg Config) {
 		} else {
 			fmt.Printf("[!] All components were identified and verified: (%d/%d)\n", numInstancesFound, len(cfg.Files))
 		}
+
 	}
 }
 
-func loadConfig() (Config, error) {
+func loadConfig(filename string) (Config, error) {
 	var config Config
-	source, err := ioutil.ReadFile("cfg.yml")
+	source, err := ioutil.ReadFile(filename)
 	if err != nil {
 		return config, err
 	}

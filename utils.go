@@ -132,12 +132,26 @@ func inspectTarForFiles(tarBallReader *tar.Reader, tarName string, cfg Config) (
 					}
 
 					for _, hash := range file.Hashes {
-						if strings.ToLower(hash.Hash) == strings.ToLower(hashVal) {
+
+						if cfg.VeryVerbose {
+							fmt.Println("[*] Checking if file has been verfied already:", file.Name)
+						}
+
+						if !checkIfFileInList(file.Name, verifiedFiles) {
 							if cfg.Verbose {
-								fmt.Printf("\t[!] Verified matching instance of '%s' at: %s with hash: %s\n", file.Name, filePath, hashVal)
+								fmt.Println("[*] File has not been verified:", file.Name)
 							}
-							numInstancesFound++
-							verifiedFiles = append(verifiedFiles, file)
+							if strings.ToLower(hash.Hash) == strings.ToLower(hashVal) {
+								if cfg.Verbose {
+									fmt.Printf("[!] Found matching instance of '%s' at: %s with hash:%s\n", file.Name, filePath, hashVal)
+								}
+								numInstancesFound++
+								verifiedFiles = append(verifiedFiles, file)
+							}
+						} else {
+							if cfg.Verbose {
+								fmt.Printf("[!] File has been verified already %s and this hash is probably duplicated:%s\n", file.Name, hash.Hash)
+							}
 						}
 					}
 				} else {
@@ -228,24 +242,32 @@ func getOnDiskFile(sourcefile string) *os.File {
 	return file
 }
 
-func inspectContainerForFiles(cfg Config) (int, []File, error) {
-	var identifiedContainerFiles []File
+func inspectContainerForFiles(cfg Config) (int, []File, []File, error) {
+	if cfg.VeryVerbose {
+		fmt.Println("[+] Inspecting Container for Files")
+	}
 	var numInstancesFoundContainer = 0
+	var identifiedContainerFiles []File
+	var verifiedFiles []File
 	if _, err := os.Stat(cfg.Path); os.IsNotExist(err) {
-		return 0, identifiedContainerFiles, err
+		return 0, identifiedContainerFiles, verifiedFiles, err
 	}
 	filepath.Walk(cfg.Path, func(path string, info os.FileInfo, err error) error {
 		switch mode := info.Mode(); {
+
 		case mode.IsRegular():
+
 			for _, file := range cfg.Files {
 				if cfg.VeryVerbose {
 					fmt.Println("[+] Looking At: ", path)
 				}
+
 				if strings.ToLower(path) == strings.ToLower(cfg.Path+file.Name) {
 
 					if cfg.VeryVerbose {
 						fmt.Println("[+] Found: ", path)
 					}
+					identifiedContainerFiles = append(identifiedContainerFiles, file)
 
 					fileToCheck := getOnDiskFile(path)
 					fileToCheckBytes, err := ioutil.ReadAll(fileToCheck)
@@ -260,12 +282,26 @@ func inspectContainerForFiles(cfg Config) (int, []File, error) {
 					}
 
 					for _, hash := range file.Hashes {
-						if strings.ToLower(hash.Hash) == strings.ToLower(hashVal) {
+
+						if cfg.VeryVerbose {
+							fmt.Println("[*] Checking if file has been verfied already:", file.Name)
+						}
+
+						if !checkIfFileInList(file.Name, verifiedFiles) {
 							if cfg.Verbose {
-								fmt.Printf("[!] Found matching instance of '%s' at: %s with hash:%s\n", file.Name, path, hashVal)
+								fmt.Println("[*] File has not been verified:", file.Name)
 							}
-							numInstancesFoundContainer++
-							identifiedContainerFiles = append(identifiedContainerFiles, file)
+							if strings.ToLower(hash.Hash) == strings.ToLower(hashVal) {
+								if cfg.Verbose {
+									fmt.Printf("[!] Found matching instance of '%s' at: %s with hash:%s\n", file.Name, path, hashVal)
+								}
+								numInstancesFoundContainer++
+								verifiedFiles = append(verifiedFiles, file)
+							}
+						} else {
+							if cfg.Verbose {
+								fmt.Printf("[!] File has been verified already %s and this hash is probably duplicated:%s\n", file.Name, hash.Hash)
+							}
 						}
 					}
 				}
@@ -274,7 +310,43 @@ func inspectContainerForFiles(cfg Config) (int, []File, error) {
 		}
 		return nil
 	})
-	return numInstancesFoundContainer, identifiedContainerFiles, nil
+	return numInstancesFoundContainer, identifiedContainerFiles, verifiedFiles, nil
+}
+
+func inspectContainerForHashes(cfg Config) {
+	if cfg.VeryVerbose {
+		fmt.Println("[+] Inspecting Container for Hashes")
+	}
+
+	filepath.Walk(cfg.Path, func(path string, info os.FileInfo, err error) error {
+		switch mode := info.Mode(); {
+		case mode.IsRegular():
+			for _, hash := range cfg.Hashes {
+				if cfg.VeryVerbose {
+					fmt.Println("[+] Looking At: ", path)
+				}
+				fileToCheck := getOnDiskFile(path)
+				fileToCheckBytes, err := ioutil.ReadAll(fileToCheck)
+				if err != nil {
+					fmt.Println("[ERROR]", err)
+				}
+				sum := sha256.Sum256(fileToCheckBytes)
+				hashVal := fmt.Sprintf("%x", sum)
+
+				if cfg.VeryVerbose {
+					fmt.Println("[*] Hash of file: ", hashVal)
+				}
+
+				if strings.ToLower(hash.Hash) == strings.ToLower(hashVal) {
+					if cfg.Verbose {
+						fmt.Printf("[!] Found matching instance of '%s' at: %s with hash:%s\n", hash.Hash, path, hashVal)
+					}
+				}
+			}
+		default:
+		}
+		return nil
+	})
 }
 
 func checkIfFileInList(fileToFind string, fileList []File) bool {
