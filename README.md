@@ -1,7 +1,7 @@
 <img alt="Terrier Logo" src="https://user-images.githubusercontent.com/449385/72431923-d0219680-378d-11ea-82e4-959da8ebbc9e.png" width="256" />
 
 # Terrier
-Terrier is a Image and Container analysis tool that can be used to scan OCI images and Containers to identify and verify the presence of specific files according to their hashes.
+Terrier is a Image and Container analysis tool that can be used to scan OCI images and Containers to identify and verify the presence of specific files according to their hashes. A detailed writeup of Terrier can be found on the Heroku blog, https://blog.heroku.com/terrier-open-source-identifying-analyzing-containers.
 
 # Installation
 #### Binaries
